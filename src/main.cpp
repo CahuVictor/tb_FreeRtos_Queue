@@ -17,6 +17,11 @@ char bufferLeitura[BUFFER_SIZE] = "";
 int indexEscrita = 0;
 int indexLeitura = 0;
 
+char bufferEscritaCircular[BUFFER_SIZE] = "";
+char bufferLeituraCircular[BUFFER_SIZE] = "";
+int indexEscritaCricular = 0;
+int indexLeituraCircular = 0;
+
 
 // Instâncias globais das classes
 SampleTasks sampletask(&Serial);  // Passa a interface Serial como parâmetro
@@ -25,7 +30,7 @@ QueueHandle_t __queue__;          // Fila compartilhada entre as tasks
                                   // Vários escrevem, porém só 1 ler, pois quando ler apaga a fila
 const int QueueElementSize = QUEUEELEMENTSIZE;
 
-void sobrescreverBuffer(char* buffer, int& index, const char* mensagem) {
+void updateBuffer(char* buffer, int& index, const char* mensagem) {
     int mensagemTamanho = strlen(mensagem) + 1;  // Inclui o caractere de nova linha
     LOG_INFO(&Serial, (String("Tamanho do Buffer: ") + String(bufferSize) +
       	              String("; Index: ") +  String(index) +
@@ -40,6 +45,40 @@ void sobrescreverBuffer(char* buffer, int& index, const char* mensagem) {
 
     snprintf(buffer + index, BUFFER_SIZE - index, "%s\n", mensagem);
     index += mensagemTamanho;  // Atualiza o índice
+}
+
+void updateBufferCircular(char* buffer, int& index, const char* mensagem) {
+    int mensagemTamanho = strlen(mensagem) + 1;  // Inclui o caractere de nova linha
+    LOG_INFO(&Serial, (String("Tamanho do Buffer: ") + String(bufferSize) +
+      	              String("; Index: ") +  String(index) +
+                      String("; Tamanho Mensagem: ") +  String(mensagemTamanho)).c_str());
+
+    // Se não houver espaço suficiente no buffer, ajusta para sobrescrever a partir do início
+    if (index + mensagemTamanho >= BUFFER_SIZE) {
+        LOG_INFO(&Serial, "Buffer cheio, sobrescrevendo dados antigos");
+
+        // Calcula o tamanho da parte da mensagem que cabe no final do buffer
+        int BufferBreak = bufferSize - index;
+
+        // Trunca a mensagem e salva a parte que cabe no final do buffer
+        strncpy(buffer + index, mensagem, BufferBreak - 1);
+        buffer[index + BufferBreak - 1] = '\0';  // Adiciona o terminador de string
+
+        // Reinicia o índice para o início do buffer
+        index = 0;
+
+        // Salva o restante da mensagem no início do buffer
+        strncpy(buffer + index, mensagem + BufferBreak - 1, mensagemTamanho - BufferBreak);
+        buffer[index + (mensagemTamanho - BufferBreak)] = '\0';  // Adiciona o terminador de string
+
+        // Atualiza o índice após a parte restante da mensagem
+        index += (mensagemTamanho - BufferBreak);
+    }
+    else
+    {
+        snprintf(buffer + index, BUFFER_SIZE - index, "%s\n", mensagem);
+        index += mensagemTamanho;  // Atualiza o índice
+    }
 }
 
 // Função para substituir '\n' por ';' no bufferLeitura e retornar a string formatada
@@ -62,7 +101,7 @@ void MainTaskSend_1(void* pvParameters) {
             xQueueSend( __queue__ , &command, portMAX_DELAY);  // Envia o comando para WiFiManager
 
             // Armazena a mensagem no buffer de escrita com sobrescrita se necessário
-            sobrescreverBuffer(bufferEscrita, indexEscrita, command);
+            updateBuffer(bufferEscrita, indexEscrita, command);
 
             LOG_INFO(&Serial, (String("Adicionado dados à fila. Dados: ") + String(command)).c_str());
             delay(random(4000) + 1000);  // Aguarda entre 2,5 e 5 segundos
@@ -82,7 +121,7 @@ void MainTaskSend_2(void* pvParameters) {
             xQueueSend( __queue__ , &command, portMAX_DELAY);  // Envia o comando para WiFiManager
             
             // Armazena a mensagem no buffer de escrita com sobrescrita se necessário
-            sobrescreverBuffer(bufferEscrita, indexEscrita, command);
+            updateBuffer(bufferEscrita, indexEscrita, command);
 
             LOG_INFO(&Serial, (String("Adicionado dados à fila. Dados: ") + String(command)).c_str());
             delay(random(4000) + 1000);  // Aguarda entre 2,5 e 5 segundos
@@ -104,7 +143,7 @@ void MainTaskReceive_1(void* pvParameters) {
                 LOG_INFO(&Serial, (String("Mensagem recebida da fila: ") + String(receiveMessage)).c_str());
 
                 // Armazena a mensagem no buffer de leitura com sobrescrita se necessário
-                sobrescreverBuffer(bufferLeitura, indexLeitura, receiveMessage);
+                updateBuffer(bufferLeitura, indexLeitura, receiveMessage);
             }
             else {
                 LOG_INFO(&Serial, "Nenhuma mensagem na fila.");
@@ -128,7 +167,7 @@ void MainTaskReceive_2(void* pvParameters) {
                 LOG_INFO(&Serial, (String("Mensagem recebida da fila: ") + String(receiveMessage)).c_str());
                 
                 // Armazena a mensagem no buffer de leitura com sobrescrita se necessário
-                sobrescreverBuffer(bufferLeitura, indexLeitura, receiveMessage);
+                updateBuffer(bufferLeitura, indexLeitura, receiveMessage);
             }
             else {
                 LOG_INFO(&Serial, "Nenhuma mensagem na fila.");
@@ -188,11 +227,13 @@ void loop()
     //LOG_INFO(&Serial, String("Buffer de Escrita:") + String(bufferEscrita));
     // Imprime os dados do buffer de escrita
     LOG_INFO(&Serial, (String("Buffer de Escrita:") + formatarBuffer(bufferEscrita)).c_str());
+    LOG_INFO(&Serial, (String("Buffer de Escrita Circular:") + formatarBuffer(bufferEscritaCircular)).c_str());
 
     // Imprime os dados do buffer de leitura
     //LOG_INFO(&Serial, String()"Buffer de Leitura:") + String(bufferLeitura));
     // Imprime os dados do buffer de leitura
     LOG_INFO(&Serial, (String("Buffer de Leitura:") + formatarBuffer(bufferLeitura)).c_str());
+    LOG_INFO(&Serial, (String("Buffer de Leitura Circular:") + formatarBuffer(bufferLeituraCircular)).c_str());
 
     delay(5000);
 }
