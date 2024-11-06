@@ -42,6 +42,13 @@ void sobrescreverBuffer(char* buffer, int& index, const char* mensagem) {
     index += mensagemTamanho;  // Atualiza o índice
 }
 
+// Função para substituir '\n' por ';' no bufferLeitura e retornar a string formatada
+String formatarBuffer(char* buffer) {
+    String bufferFormatado = String(buffer);
+    bufferFormatado.replace("\n", ";");  // Substitui todos os '\n' por ';'
+    return bufferFormatado;
+}
+
 // Função da nova tarefa para imprimir o conteúdo da fila
 void MainTaskSend_1(void* pvParameters) {
     int i = 0;
@@ -180,14 +187,12 @@ void loop()
     // Imprime os dados do buffer de escrita
     //LOG_INFO(&Serial, String("Buffer de Escrita:") + String(bufferEscrita));
     // Imprime os dados do buffer de escrita
-    LOG_INFO(&Serial, "Buffer de Escrita:");
-    LOG_INFO(&Serial, bufferEscrita);
+    LOG_INFO(&Serial, (String("Buffer de Escrita:") + formatarBuffer(bufferEscrita)).c_str());
 
     // Imprime os dados do buffer de leitura
     //LOG_INFO(&Serial, String()"Buffer de Leitura:") + String(bufferLeitura));
     // Imprime os dados do buffer de leitura
-    LOG_INFO(&Serial, "Buffer de Leitura:");
-    LOG_INFO(&Serial, bufferLeitura);
+    LOG_INFO(&Serial, (String("Buffer de Leitura:") + formatarBuffer(bufferLeitura)).c_str());
 
     delay(5000);
 }
