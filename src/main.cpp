@@ -24,11 +24,91 @@ int indexLeituraCircular = 0;
 
 
 // Instâncias globais das classes
-SampleTasks sampletask(&Serial);  // Passa a interface Serial como parâmetro
+SampleTasks sampletaskSend(&Serial);  // Passa a interface Serial como parâmetro
+SampleTasks sampletaskReceive(&Serial);  // Passa a interface Serial como parâmetro
 
 QueueHandle_t __queue__;          // Fila compartilhada entre as tasks
                                   // Vários escrevem, porém só 1 ler, pois quando ler apaga a fila
 const int QueueElementSize = QUEUEELEMENTSIZE;
+
+void updateBuffer(char* buffer, int& index, const char* mensagem);
+
+void updateBufferCircular(char* buffer, int& index, const char* mensagem);
+
+// Função para substituir '\n' por ';' no bufferLeitura e retornar a string formatada
+String formatarBuffer(char* buffer);
+
+// Task para enviar dados para a fila
+void MainTaskSend_1(void* pvParameters);
+
+// Task para enviar dados para a fila
+void MainTaskSend_2(void* pvParameters);
+
+// Task para receber dados da fila
+void MainTaskReceive_1(void* pvParameters);
+
+// Task para receber dados da fila
+void MainTaskReceive_2(void* pvParameters);
+
+void setup() {
+    // Inicialização da comunicação serial
+    Serial.begin(115200);
+    while (!Serial);  // Aguarda a inicialização da porta serial
+
+    MyLogger::initialize();  // Inicializa o logger com proteção de mutex se FreeRTOS estiver disponível
+    LOG_INFO(&Serial, "Sistema inicializado com sucesso.");
+
+    // Inicializa e configura a fila
+    __queue__ = xQueueCreate(QueueElementSize, sizeof(char) * QueueElementSize);        // Create the queue which will have <QueueElementSize>
+                                                                                            // number of elements, each of size `message_t` and 
+                                                                                            // pass the address to <QueueHandle>.
+    // Check if the queue was successfully created
+    if (__queue__ == NULL)
+    {
+        LOG_INFO(&Serial, "Queue could not be created. Halt.");
+        while (1)
+        {
+            delay(1000);  // Halt at this point as is not possible to continue
+        }
+    }
+
+    // Passa a fila para os módulos libs
+    sampletaskSend.setQueue(__queue__);
+    sampletaskReceive.setQueue(__queue__);
+
+    // Inicialização dos módulos
+    sampletaskSend.initialize();
+    sampletaskReceive.initialize();
+
+    // Configurações de teste
+    //serialComm.sendMessage("Hello from SerialCommunication!");
+
+    // Inicia as tarefas
+    // Criar task para gerenciar a fila pois sempre que é lido é apagada a fila
+    xTaskCreate(MainTaskSend_1, "Main Task 1", 2048, NULL, 1, NULL);
+    xTaskCreate(MainTaskSend_2, "Main Task 2", 2048, NULL, 1, NULL);
+    xTaskCreate(MainTaskReceive_1, "Main Task 3", 2048, NULL, 1, NULL);
+    xTaskCreate(MainTaskReceive_2, "Main Task 4", 2048, NULL, 1, NULL);
+    sampletaskSend.startTask(0);
+    sampletaskReceive.startTask(1);
+}
+
+void loop() 
+{
+    // O loop principal não será usado, pois as tarefas são gerenciadas pelo FreeRTOS
+    // Exemplo de log periódico
+    LOG_INFO(&Serial, "Loop principal em execução.");
+
+    // Imprime os dados do buffer de escrita
+    LOG_INFO(&Serial, (String("Buffer de Escrita:") + formatarBuffer(bufferEscrita)).c_str());
+    LOG_INFO(&Serial, (String("Buffer de Escrita Circular:") + formatarBuffer(bufferEscritaCircular)).c_str());
+
+    // Imprime os dados do buffer de leitura
+    LOG_INFO(&Serial, (String("Buffer de Leitura:") + formatarBuffer(bufferLeitura)).c_str());
+    LOG_INFO(&Serial, (String("Buffer de Leitura Circular:") + formatarBuffer(bufferLeituraCircular)).c_str());
+
+    delay(5000);
+}
 
 void updateBuffer(char* buffer, int& index, const char* mensagem) {
     int mensagemTamanho = strlen(mensagem) + 1;  // Inclui o caractere de nova linha
@@ -175,65 +255,4 @@ void MainTaskReceive_2(void* pvParameters) {
             delay(random(4000) + 1000);  // Aguarda entre 2,5 e 5 segundos
         }
     }
-}
-
-void setup() {
-    // Inicialização da comunicação serial
-    Serial.begin(115200);
-    while (!Serial);  // Aguarda a inicialização da porta serial
-
-    MyLogger::initialize();  // Inicializa o logger com proteção de mutex se FreeRTOS estiver disponível
-    LOG_INFO(&Serial, "Sistema inicializado com sucesso.");
-
-    // Inicializa e configura a fila
-    __queue__ = xQueueCreate(QueueElementSize, sizeof(char) * QueueElementSize);        // Create the queue which will have <QueueElementSize>
-                                                                                            // number of elements, each of size `message_t` and 
-                                                                                            // pass the address to <QueueHandle>.
-    // Check if the queue was successfully created
-    if (__queue__ == NULL)
-    {
-        LOG_INFO(&Serial, "Queue could not be created. Halt.");
-        while (1)
-        {
-            delay(1000);  // Halt at this point as is not possible to continue
-        }
-    }
-
-    // Passa a fila para os módulos libs
-    //sampletask.setQueue(__queue__);
-
-    // Inicialização dos módulos
-    //sampletask.initialize();
-
-    // Configurações de teste
-    //serialComm.sendMessage("Hello from SerialCommunication!");
-
-    // Inicia as tarefas
-    // Criar task para gerenciar a fila pois sempre que é lido é apagada a fila
-    xTaskCreate(MainTaskSend_1, "Main Task 1", 2048, NULL, 1, NULL);
-    xTaskCreate(MainTaskSend_2, "Main Task 2", 2048, NULL, 1, NULL);
-    xTaskCreate(MainTaskReceive_1, "Main Task 3", 2048, NULL, 1, NULL);
-    xTaskCreate(MainTaskReceive_2, "Main Task 4", 2048, NULL, 1, NULL);
-    //sampletask.startTask();
-}
-
-void loop() 
-{
-    // O loop principal não será usado, pois as tarefas são gerenciadas pelo FreeRTOS
-    // Exemplo de log periódico
-    LOG_INFO(&Serial, "Loop principal em execução.");
-
-    // Imprime os dados do buffer de escrita
-    //LOG_INFO(&Serial, String("Buffer de Escrita:") + String(bufferEscrita));
-    // Imprime os dados do buffer de escrita
-    LOG_INFO(&Serial, (String("Buffer de Escrita:") + formatarBuffer(bufferEscrita)).c_str());
-    LOG_INFO(&Serial, (String("Buffer de Escrita Circular:") + formatarBuffer(bufferEscritaCircular)).c_str());
-
-    // Imprime os dados do buffer de leitura
-    //LOG_INFO(&Serial, String()"Buffer de Leitura:") + String(bufferLeitura));
-    // Imprime os dados do buffer de leitura
-    LOG_INFO(&Serial, (String("Buffer de Leitura:") + formatarBuffer(bufferLeitura)).c_str());
-    LOG_INFO(&Serial, (String("Buffer de Leitura Circular:") + formatarBuffer(bufferLeituraCircular)).c_str());
-
-    delay(5000);
 }

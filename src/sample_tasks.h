@@ -11,19 +11,23 @@
 
 class SampleTasks {
 public:
-    SampleTasks(Stream* serialInterface);  // Construtor com a interface serial como parâmetro
+    SampleTasks(Stream* serialInterface);               // Construtor com a interface serial como parâmetro
 
-    void initialize();                        // Inicializa a fila e o buffer circular
-    void setQueue(QueueHandle_t queue);     // Define a fila da comunicação serial
-    void startTask();                        // Inicia as tarefas FreeRTOS para recepção e transmissão
+    void initialize();                                  // Inicializa a fila e o buffer circular
+    void setQueue(QueueHandle_t queue);                 // Define a fila da comunicação serial
+    void setBuffer(char* buffer);                       // Define a fila da comunicação serial
+    void startTask(int type);                           // Inicia as tarefas FreeRTOS para recepção e transmissão
 
 private:
     Stream* serial;                           // Interface serial para comunicação
-    QueueHandle_t __queue__;                 // Fila para dados de saída serial
-    void sample_task_lib();
+    QueueHandle_t queue;                  // Fila para dados de saída serial
+    char* buffer;                             // Fila para dados de saída serial
+    void sample_task_send_lib();
+    void sample_task_receive_lib();
 
     // Função estática para utilizar FreeRtos
-    static void taskWrapper(void* pvParameters);
+    static void taskWrapperSend(void* pvParameters);
+    static void taskWrapperReceive(void* pvParameters);
 };
 
 #endif
