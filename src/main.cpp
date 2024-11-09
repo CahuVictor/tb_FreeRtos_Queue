@@ -178,7 +178,7 @@ void MainTaskSend_1(void* pvParameters) {
         if ( __queue__ != nullptr )
         {
             snprintf(command, sizeof(command), "TaskSend_1=%d", i++);
-            xQueueSend( __queue__ , &command, portMAX_DELAY);  // Envia o comando para WiFiManager
+            xQueueSend( __queue__ , &command, portMAX_DELAY);  // Envia o comando para Queue
 
             // Armazena a mensagem no buffer de escrita com sobrescrita se necessário
             updateBuffer(bufferEscrita, indexEscrita, command);
